@@ -1071,7 +1071,7 @@ contract('ChronoMint', function(accounts) {
         });
 
         it("should allow owner to buy 10 LHT for 20 Eth each", function () {
-            return exchange.buy(10, 20, {value: 10 * 20}).then(function () {
+            return exchange.buy(100, 200, {value: 10 * 20}).then(function () {
                 return lhProxyContract.balanceOf.call(owner).then(function (r) {
                     assert.equal(r, 10);
                 });

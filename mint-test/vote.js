@@ -317,7 +317,7 @@ contract('Vote', function(accounts) {
         });
         });
 
-        it("shouldn't be able to create Poll with votelimit exceeded", function() {
+        it("shouldn't be able to create Poll with voteLimit exceeded", function() {
             return vote.NewPoll([bytes32('1'),bytes32('2')],bytes32('New Poll'),bytes32('New Description'),35001, 2, unix + 10000, {from: owner, gas:3000000}).then(assert.fail, () => true)
         });
 

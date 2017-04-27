@@ -16,20 +16,16 @@ contract UserManager is Managed {
         return true;
     }
 
-    function addKey(address key) execute(Shareable.Operations.createLOC) {
-        if (!UserStorage(userStorage).getCBE(key)) { // Make sure that the key being submitted isn't already CBE
-            if (!UserStorage(userStorage).addMember(key, true)) { // member already exist
-                if (UserStorage(userStorage).setCBE(key, true)) {
-                    cbeUpdate(key);
-                }
-            } else {
-                cbeUpdate(key);
-            }
+    function addKey(address key) execute {
+        if (!UserStorage(userStorage).getCBE(key) // make sure that the key being submitted isn't already CBE
+            && (UserStorage(userStorage).addMember(key, true) || UserStorage(userStorage).setCBE(key, true))) {
+            // new CBE member was created or old member became CBE
+            cbeUpdate(key);
         }
     }
 
-    function revokeKey(address key) execute(Shareable.Operations.createLOC) {
-        if (UserStorage(userStorage).getCBE(key)) { // Make sure that the key being revoked is exist and is CBE
+    function revokeKey(address key) execute {
+        if (UserStorage(userStorage).getCBE(key)) { // make sure that the key being revoked is exist and is CBE
             UserStorage(userStorage).setCBE(key, false);
             cbeUpdate(key);
         }
@@ -39,7 +35,7 @@ contract UserManager is Managed {
         UserStorage(userStorage).addMember(key, false);
     }
 
-    function setMemberHash(address key, bytes32 _hash) onlyAuthorized() returns (bool) {
+    function setMemberHash(address key, bytes32 _hash) onlyAuthorized returns (bool) {
         createMemberIfNotExist(key);
         UserStorage(userStorage).setHashes(key, _hash);
         return true;
@@ -59,7 +55,7 @@ contract UserManager is Managed {
         return UserStorage(userStorage).required();
     }
 
-    function setRequired(uint _required) execute(Shareable.Operations.changeReq) returns (bool) {
+    function setRequired(uint _required) execute returns (bool) {
         setReq(_required);
         return UserStorage(userStorage).setRequired(_required);
     }
