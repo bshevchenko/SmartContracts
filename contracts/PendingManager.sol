@@ -3,44 +3,85 @@ pragma solidity ^0.4.8;
 import "./UserStorage.sol";
 
 contract PendingManager {
-// TYPES
 
-    address userStorage;
-
-    mapping (bytes32 => Transaction) public txs;
+    // TYPES
 
     struct Transaction {
         address to;
         bytes data;
     }
 
-// struct for the status of a pending operation.
+    // struct for the status of a pending operation
     struct PendingState {
         uint yetNeeded;
         uint ownersDone;
         uint index;
     }
 
+
+    // FIELDS
+
+    address userStorage;
+
+    mapping (bytes32 => Transaction) public txs;
+
+    // the ongoing operations
+    mapping (bytes32 => PendingState) pendings;
+
+    mapping (uint => bytes32) pendingsIndex;
+
+    uint pendingCount = 0;
+
+
+    // EVENTS
+
+    event Confirmation(address owner, bytes32 operation);
+    event Revoke(address owner, bytes32 operation);
+    event Done(bytes32 operation, bytes data);
+
+
+    /// MODIFIERS
+
+    // simple single-sig function modifier
+    modifier onlyOwner {
+        if (isOwner(msg.sender)) {
+            _;
+        }
+    }
+
+    // multi-sig function modifier: the operation must have an intrinsic hash in order
+    // that later attempts can be realised as the same underlying operation and
+    // thus count as confirmations
+    modifier onlyManyOwners(bytes32 _operation, address _sender) {
+        if (confirmAndCheck(_operation, _sender)) {
+            _;
+        }
+    }
+
+
+    // METHODS
+
     function init(address _userStorage) {
         userStorage = _userStorage;
     }
 
-// FIELDS
-
-// the ongoing operations.
-    mapping(bytes32 => PendingState) pendings;
-    mapping(uint => bytes32) pendingsIndex;
-    uint pendingCount;
-
-    function pendingsCount() constant returns(uint) {
+    function pendingsCount() constant returns (uint) {
         return pendingCount;
     }
 
-    function pendingById(uint _id) constant returns(bytes32) {
+    function pendingById(uint _id) constant returns (bytes32) {
         return pendingsIndex[_id];
     }
 
-    function pendingYetNeeded(bytes32 _hash) constant returns(uint) {
+    function getPending(uint _id) constant returns (bytes32 index, bytes data, uint yetNeeded, uint ownersDone) {
+        index = pendingsIndex[_id];
+        data = getTxsData(index);
+        yetNeeded = pendingYetNeeded(index);
+        ownersDone = pendings[index].ownersDone;
+        return (index, data, yetNeeded, ownersDone);
+    }
+
+    function pendingYetNeeded(bytes32 _hash) constant returns (uint) {
         return pendings[_hash].yetNeeded;
     }
 
@@ -48,38 +89,10 @@ contract PendingManager {
         return txs[_hash].data;
     }
 
-// EVENTS
-
-// this contract only has six types of events: it can accept a confirmation, in which case
-// we record owner and operation (hash) alongside it.
-    event Confirmation(address owner, bytes32 operation);
-    event Revoke(address owner, bytes32 operation);
-    event Done(bytes data);
-    event Test(address sender);
-    event Test2(uint value);
-
-/// MODIFIERS
-
-// simple single-sig function modifier.
-    modifier onlyOwner {
-        if (isOwner(msg.sender))
-        _;
-    }
-
-// multi-sig function modifier: the operation must have an intrinsic hash in order
-// that later attempts can be realised as the same underlying operation and
-// thus count as confirmations.
-    modifier onlymanyowners(bytes32 _operation, address _sender) {
-        if (confirmAndCheck(_operation, _sender))
-        _;
-    }
-
-
-// METHODS
-
     function addTx(bytes32 _r, bytes data, address to, address sender) {
-        if(pendingCount > 20)
-        throw;
+        if (pendingCount > 20) {
+            throw;
+        }
         txs[_r].data = data;
         txs[_r].to = to;
         conf(_r, sender);
@@ -89,7 +102,7 @@ contract PendingManager {
         return conf(_h, msg.sender);
     }
 
-    function conf(bytes32 _h, address sender) onlymanyowners(_h, sender) returns (bool) {
+    function conf(bytes32 _h, address sender) onlyManyOwners(_h, sender) returns (bool) {
         if (txs[_h].to != 0) {
             if (!txs[_h].to.call(txs[_h].data)) {
                 throw;
@@ -99,13 +112,10 @@ contract PendingManager {
         }
     }
 
-// Revokes a prior confirmation of the given operation
+    // revokes a prior confirmation of the given operation
     function revoke(bytes32 _operation) external {
-        if(isOwner(msg.sender)) {
-            uint index = UserStorage(userStorage).getMemberId(msg.sender);
-        // make sure they're an owner
-            if (index == 0) return;
-            uint ownerIndexBit = 2**index;
+        if (isOwner(msg.sender)) {
+            uint ownerIndexBit = 2 ** UserStorage(userStorage).getMemberId(msg.sender);
             var pending = pendings[_operation];
             if (pending.ownersDone & ownerIndexBit > 0) {
                 pending.yetNeeded++;
@@ -115,7 +125,7 @@ contract PendingManager {
         }
     }
 
-// Gets an owner by 0-indexed position (using numOwners as the count)
+    // gets an owner by 0-indexed position (using numOwners as the count)
     function getOwner(uint ownerIndex) external constant returns (address) {
         return UserStorage(userStorage).getMemberAddr(ownerIndex);
     }
@@ -126,54 +136,44 @@ contract PendingManager {
 
     function hasConfirmed(bytes32 _operation, address _owner) constant returns (bool) {
         var pending = pendings[_operation];
-        if(isOwner(_owner)) {
-            uint index = UserStorage(userStorage).getMemberId(_owner);
-        // make sure they're an owner
-            if (index == 0) return false;
-
-        // determine the bit to set for this owner.
-            uint ownerIndexBit = 2**index;
+        if (isOwner(_owner)) {
+            // determine the bit to set for this owner
+            uint ownerIndexBit = 2 ** UserStorage(userStorage).getMemberId(_owner);
             return !(pending.ownersDone & ownerIndexBit == 0);
         }
     }
 
-// INTERNAL METHODS
+
+    // INTERNAL METHODS
 
     function confirmAndCheck(bytes32 _operation, address sender) internal returns (bool) {
-        //Test(sender);
-        if(isOwner(sender)) {
-        // determine what index the present sender is:
-            uint index = UserStorage(userStorage).getMemberId(sender);
-            //Test2(index);
-        // make sure they're an owner
-            if (index == 0) return;
+        if (isOwner(sender)) {
             var pending = pendings[_operation];
-        // if we're not yet working on this operation, switch over and reset the confirmation status.
+            // if we're not yet working on this operation, switch over and reset the confirmation status
             if (pending.yetNeeded == 0) {
-            // reset count of confirmations needed.
+                // reset count of confirmations needed
                 pending.yetNeeded = UserStorage(userStorage).required();
-            // reset which owners have confirmed (none) - set our bitmap to 0.
+                // reset which owners have confirmed (none) - set our bitmap to 0
                 pending.ownersDone = 0;
-                pending.index = pendingCount++;
+                pending.index = pendingCount;
+                pendingCount++;
                 pendingsIndex[pending.index] = _operation;
             }
-        // determine the bit to set for this owner.
-            uint ownerIndexBit = 2**index;
-        // make sure we (the message sender) haven't confirmed this operation previously.
+            // determine the bit to set for this owner
+            uint ownerIndexBit = 2 ** UserStorage(userStorage).getMemberId(sender);
+            // make sure we (the message sender) haven't confirmed this operation previously
             if (pending.ownersDone & ownerIndexBit == 0) {
                 Confirmation(msg.sender, _operation);
-            // ok - check if count is enough to go ahead.
+                // ok - check if count is enough to go ahead
                 if (pending.yetNeeded <= 1) {
-                // enough confirmations: reset and run interior.
-                    Done(txs[_operation].data);
+                    // enough confirmations: reset and run interior
+                    Done(_operation, txs[_operation].data);
                     delete pendingsIndex[pendings[_operation].index];
                     removeOp(pendings[_operation].index);
                     delete pendings[_operation];
                     return true;
-                }
-                else
-                {
-                // not enough: record that this owner in particular confirmed.
+                } else {
+                    // not enough: record that this owner in particular confirmed
                     pending.yetNeeded--;
                     pending.ownersDone |= ownerIndexBit;
                 }
@@ -181,12 +181,13 @@ contract PendingManager {
         }
     }
 
-    function removeOp(uint i) {
-        if (i >= pendingCount) return;
-
-        while(i<pendingCount-1){
-            pendings[pendingsIndex[i+1]].index = pendings[pendingsIndex[i]].index;
-            pendingsIndex[i] = pendingsIndex[i+1];
+    function removeOp(uint i) internal {
+        if (i >= pendingCount) {
+            return;
+        }
+        while (i < pendingCount - 1) {
+            pendings[pendingsIndex[i + 1]].index = pendings[pendingsIndex[i]].index;
+            pendingsIndex[i] = pendingsIndex[i + 1];
             i++;
         }
         pendingCount--;
@@ -194,10 +195,11 @@ contract PendingManager {
 
     function clearPending() internal {
         uint length = pendingCount;
-        for (uint i = 0; i < length; ++i)
-        if (pendingsIndex[i] != 0) {
-            delete pendings[pendingsIndex[i]];
-            delete pendingsIndex[i];
+        for (uint i = 0; i < length; ++i) {
+            if (pendingsIndex[i] != 0) {
+                delete pendings[pendingsIndex[i]];
+                delete pendingsIndex[i];
+            }
         }
     }
 

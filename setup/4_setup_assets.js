@@ -219,7 +219,7 @@ module.exports = (callback) => {
     }).then(() => {
       return chronoBankPlatform.changeContractOwnership(ContractsManager.address, params)
     }).then(() => {
-      return contractsManager.claimPlatformOwnership(ChronoBankPlatform.address, params)
+      // return contractsManager.claimPlatformOwnership(ChronoBankPlatform.address, params)
     })
 
     .then(() => {
@@ -230,7 +230,7 @@ module.exports = (callback) => {
     }).then(() => {
       return exchange.changeContractOwnership(contractsManager.address, params)
     }).then(() => {
-      return contractsManager.claimExchangeOwnership(Exchange.address, params)
+      // return contractsManager.claimExchangeOwnership(Exchange.address, params)
     }).then(() => {
       return Rewards.deployed()
     }).then(i => {
@@ -248,7 +248,7 @@ module.exports = (callback) => {
 
     /** EXCHANGE INIT >>> */
     .then(() => {
-      return contractsManager.setExchangePrices(Exchange.address, 1, 2)
+      // return contractsManager.setExchangePrices(Exchange.address, 1, 2)
     })
     .then(() => {
       return chronoMint.proposeLOC(

@@ -17,17 +17,9 @@ contract UserManager is Managed {
     }
 
     function addCBE(address _key, bytes32 _hash) multisig {
-        if (!UserStorage(userStorage).getCBE(_key)) { // Make sure that the key being submitted isn't already CBE
-            if (!UserStorage(userStorage).addMember(_key, true)) { // member already exist
-                if (UserStorage(userStorage).setCBE(_key, true)) {
-                    setMemberHash(_key, _hash);
-                    cbeUpdate(_key);
-                }
-            } else {
-                setMemberHash(_key, _hash);
-                cbeUpdate(_key);
-            }
-        }
+        createMemberIfNotExist(_key);
+        UserStorage(userStorage).setCBE(_key, true);
+        cbeUpdate(_key);
     }
 
     function revokeCBE(address key) multisig {
