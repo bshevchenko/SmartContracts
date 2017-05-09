@@ -30,7 +30,7 @@ contract PendingManager {
 
     mapping (uint => bytes32) pendingsIndex;
 
-    uint pendingCount = 0;
+    uint pendingCount = 1;
 
 
     // EVENTS
@@ -79,6 +79,13 @@ contract PendingManager {
         yetNeeded = pendingYetNeeded(index);
         ownersDone = pendings[index].ownersDone;
         return (index, data, yetNeeded, ownersDone);
+    }
+
+    function getPendingByHash(bytes32 _hash) constant returns (bytes data, uint yetNeeded, uint ownersDone) {
+        data = getTxsData(_hash);
+        yetNeeded = pendingYetNeeded(_hash);
+        ownersDone = pendings[_hash].ownersDone;
+        return (data, yetNeeded, ownersDone);
     }
 
     function pendingYetNeeded(bytes32 _hash) constant returns (uint) {
@@ -143,6 +150,16 @@ contract PendingManager {
         }
     }
 
+    function clearPending() {
+        uint length = pendingCount;
+        for (uint i = 0; i < length; ++i) {
+            if (pendingsIndex[i] != 0) {
+                delete pendings[pendingsIndex[i]];
+                delete pendingsIndex[i];
+            }
+        }
+    }
+
 
     // INTERNAL METHODS
 
@@ -191,16 +208,6 @@ contract PendingManager {
             i++;
         }
         pendingCount--;
-    }
-
-    function clearPending() internal {
-        uint length = pendingCount;
-        for (uint i = 0; i < length; ++i) {
-            if (pendingsIndex[i] != 0) {
-                delete pendings[pendingsIndex[i]];
-                delete pendingsIndex[i];
-            }
-        }
     }
 
     function()
