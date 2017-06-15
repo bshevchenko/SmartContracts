@@ -6,7 +6,7 @@ contract PendingManagerEmitter is MultiEventsHistoryAdapter {
 
     event Confirmation(address indexed self,address indexed owner, bytes32 indexed hash);
     event Revoke(address indexed self,address indexed owner, bytes32 indexed hash);
-    event Canceled(address indexed self,bytes32 indexed hash);
+    event Cancelled(address indexed self,bytes32 indexed hash);
     event Done(address indexed self,bytes32 indexed hash, bytes data, uint timestamp);
     event Error(address indexed self,bytes32 indexed message);
 
@@ -16,8 +16,8 @@ contract PendingManagerEmitter is MultiEventsHistoryAdapter {
     function emitRevoke(address owner, bytes32 hash) {
         Revoke(_self(),owner,hash);
     }
-    function emitCanceled(bytes32 hash) {
-        Canceled(_self(),hash);
+    function emitCancelled(bytes32 hash) {
+        Cancelled(_self(),hash);
     }
     function emitDone(bytes32 hash, bytes data, uint timestamp) {
         Done(_self(),hash,data,timestamp);

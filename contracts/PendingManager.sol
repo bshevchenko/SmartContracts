@@ -58,6 +58,24 @@ contract PendingManager is Managed, PendingManagerEmitter {
         return store.count(txHashes);
     }
 
+    function getTxs() constant returns (bytes32[] _hashes, uint[] _yetNeeded, uint[] _ownersDone, uint[] _timestamp) {
+        _hashes = new bytes32[](pendingsCount());
+        _yetNeeded = new uint[](pendingsCount());
+        _ownersDone = new uint[](pendingsCount());
+        _timestamp = new uint[](pendingsCount());
+        for (uint i = 0; i < pendingsCount(); i++) {
+            _hashes[i] = store.get(txHashes, i);
+            _yetNeeded[i] = store.get(yetNeeded, _hashes[i]);
+            _ownersDone[i] = store.get(ownersDone, _hashes[i]);
+            _timestamp[i] = store.get(timestamp, _hashes[i]);
+        }
+        return (_hashes, _yetNeeded, _ownersDone, _timestamp);
+    }
+
+    function getTx(bytes32 _hash) constant returns (bytes _data, uint _yetNeeded, uint _ownersDone, uint _timestamp) {
+        return (data[_hash], store.get(yetNeeded, _hash), store.get(ownersDone, _hash), store.get(timestamp, _hash));
+    }
+
     function pendingYetNeeded(bytes32 _hash) constant returns (uint) {
         return store.get(yetNeeded,_hash);
     }
@@ -110,7 +128,7 @@ contract PendingManager is Managed, PendingManagerEmitter {
                 _emitRevoke(msg.sender, _hash);
                 if (store.get(yetNeeded,_hash) == UserManagerInterface(userManager).required()) {
                     deleteTx(_hash);
-                    _emitCanceled(_hash);
+                    _emitCancelled(_hash);
                 }
             }
     }
@@ -175,8 +193,8 @@ contract PendingManager is Managed, PendingManagerEmitter {
     function _emitRevoke(address owner, bytes32 hash) {
         PendingManager(getEventsHistory()).emitRevoke(owner,hash);
     }
-    function _emitCanceled(bytes32 hash) {
-        PendingManager(getEventsHistory()).emitCanceled(hash);
+    function _emitCancelled(bytes32 hash) {
+        PendingManager(getEventsHistory()).emitCancelled(hash);
     }
     function _emitDone(bytes32 hash, bytes data, uint timestamp) {
         PendingManager(getEventsHistory()).emitDone(hash,data,timestamp);
